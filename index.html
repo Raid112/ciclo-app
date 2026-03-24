@@ -296,6 +296,115 @@
       box-shadow: 0 0 4px var(--pill-glow);
     }
 
+    /* ─── Cycle Indicators ─── */
+    .cycle-day-num {
+      font-size: 7px;
+      line-height: 1;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+    .calendar-day.active-day .cycle-day-num {
+      color: var(--pill-color);
+    }
+    .calendar-day.pause-day {
+      border-color: rgba(212, 68, 59, 0.2);
+      border-style: dashed;
+    }
+    .calendar-day.pause-day .cycle-day-num {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .calendar-day.future-active {
+      background: rgba(212, 68, 59, 0.06);
+    }
+    .calendar-day.future-pause {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(255, 255, 255, 0.08);
+      border-style: dashed;
+    }
+
+    /* ─── Cycle Status Card ─── */
+    .cycle-card {
+      margin: 0 16px 8px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      text-align: center;
+    }
+    .cycle-card-phase {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .cycle-card-phase.active { color: var(--pill-color); }
+    .cycle-card-phase.pause { color: var(--text-muted); }
+    .cycle-card-detail {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+    .cycle-card-ornament {
+      color: var(--primary);
+      font-size: 9px;
+      letter-spacing: 3px;
+      opacity: 0.5;
+      margin-top: 6px;
+    }
+    .cycle-progress {
+      display: flex;
+      gap: 2px;
+      justify-content: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .cycle-progress-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .cycle-progress-dot.filled {
+      background: var(--pill-color);
+      box-shadow: 0 0 3px var(--pill-glow);
+    }
+    .cycle-progress-dot.pause-dot {
+      border-radius: 2px;
+    }
+    .cycle-progress-dot.pause-dot.filled {
+      background: var(--text-muted);
+      box-shadow: none;
+    }
+    .cycle-progress-separator {
+      width: 4px;
+    }
+
+    /* ─── Panel Cycle Badge ─── */
+    .panel-cycle-badge {
+      text-align: center;
+      margin-bottom: 16px;
+      padding: 8px 16px;
+      background: rgba(139, 26, 26, 0.15);
+      border: 1px solid rgba(139, 26, 26, 0.3);
+      border-radius: 10px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+    .panel-cycle-badge .badge-phase {
+      color: var(--pill-color);
+      font-weight: 600;
+    }
+    .panel-cycle-badge.pause-badge {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .panel-cycle-badge.pause-badge .badge-phase {
+      color: var(--text-muted);
+    }
+
     /* ─── Legend ─── */
     .legend {
       display: flex;
@@ -422,6 +531,19 @@
       background: rgba(212, 68, 59, 0.15);
       color: var(--text);
       box-shadow: 0 0 12px var(--pill-glow);
+    }
+
+    /* Pill Pause Message */
+    .pill-pause-msg {
+      padding: 12px 16px;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+      letter-spacing: 1px;
+      font-style: italic;
     }
 
     /* Time Input */
@@ -640,8 +762,15 @@
           <span class="legend-square period"></span>
           Menstruação
         </div>
+        <div class="legend-item">
+          <span style="font-size:7px;color:var(--pill-color);font-weight:600;">15</span>
+          Dia do ciclo
+        </div>
       </div>
     </section>
+
+    <!-- Cycle Status -->
+    <div class="cycle-card" id="cycleCard" style="display: none;"></div>
   </div>
 
   <!-- Day Panel -->
@@ -649,6 +778,7 @@
     <div class="day-panel">
       <div class="panel-title" id="panelTitle">Registro</div>
       <div class="panel-date" id="panelDate"></div>
+      <div class="panel-cycle-badge" id="panelCycleBadge" style="display: none;"></div>
 
       <div class="panel-section">
         <div class="panel-section-title">
@@ -658,6 +788,9 @@
         <div class="pill-toggle" id="pillToggle">
           <button class="pill-option" data-pill="false">Não tomou</button>
           <button class="pill-option" data-pill="true">Tomou</button>
+        </div>
+        <div class="pill-pause-msg" id="pillPauseMsg" style="display: none;">
+          Período de pausa — não tomar a pílula
         </div>
         <div class="time-row" id="timeRow">
           <span class="time-label">Horário:</span>
@@ -771,6 +904,7 @@
       currentMonth = now.getMonth();
 
       renderCalendar();
+      renderCycleCard();
       syncFromRemote();
     }
 
@@ -835,6 +969,25 @@
           el.appendChild(dot);
         }
 
+        // Cycle day indicator
+        const isFuture = new Date(currentYear, currentMonth, d) > today;
+        const cycleInfo = isFuture ? getCycleInfoForFuture(dateKey) : getCycleInfo(dateKey);
+
+        if (cycleInfo) {
+          const cycleNum = document.createElement('span');
+          cycleNum.className = 'cycle-day-num';
+          cycleNum.textContent = cycleInfo.phase === 'active'
+            ? `${cycleInfo.dayInPhase}`
+            : `P${cycleInfo.dayInPhase}`;
+          el.appendChild(cycleNum);
+
+          el.classList.add(cycleInfo.phase === 'active' ? 'active-day' : 'pause-day');
+
+          if (cycleInfo.projected) {
+            el.classList.add(cycleInfo.phase === 'active' ? 'future-active' : 'future-pause');
+          }
+        }
+
         el.addEventListener('click', () => openPanel(dateKey, d));
         grid.appendChild(el);
       }
@@ -849,6 +1002,142 @@
       const d = new Date(parts[0], parts[1] - 1, parts[2]);
       const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
       return `${days[d.getDay()]}, ${parts[2]} de ${MONTHS_PT[parseInt(parts[1]) - 1]}`;
+    }
+
+    // ─── Cycle Engine (24+4) ───
+    const CYCLE_ACTIVE = 24;
+    const CYCLE_PAUSE = 4;
+    const CYCLE_TOTAL = CYCLE_ACTIVE + CYCLE_PAUSE;
+
+    function parseDateKey(dateKey) {
+      const [y, m, d] = dateKey.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function addDays(dateKey, n) {
+      const d = parseDateKey(dateKey);
+      d.setDate(d.getDate() + n);
+      return formatDateKey(d);
+    }
+
+    function daysBetween(a, b) {
+      return Math.round((parseDateKey(b) - parseDateKey(a)) / 86400000);
+    }
+
+    function getCycleInfo(dateKey) {
+      // Walk backwards to find cycle start (first pill after gap > 4 days)
+      let pillDates = [];
+      let cursor = parseDateKey(dateKey);
+      let gapCount = 0;
+
+      for (let i = 0; i < 90; i++) {
+        const key = formatDateKey(cursor);
+        if (data[key]?.pill?.taken) {
+          if (gapCount > CYCLE_PAUSE) break;
+          gapCount = 0;
+          pillDates.push(key);
+        } else {
+          gapCount++;
+          if (gapCount > CYCLE_PAUSE && pillDates.length > 0) break;
+        }
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      if (pillDates.length === 0) return null;
+
+      pillDates.reverse(); // chronological order
+      const cycleStart = pillDates[0];
+
+      // Count pills taken from cycle start through dateKey
+      let pillCount = 0;
+      let lastActivePillDate = null;
+      const totalDays = daysBetween(cycleStart, dateKey);
+
+      for (let i = 0; i <= Math.max(totalDays, 0); i++) {
+        const k = addDays(cycleStart, i);
+        if (data[k]?.pill?.taken) {
+          pillCount++;
+          if (pillCount <= CYCLE_ACTIVE) lastActivePillDate = k;
+        }
+      }
+
+      // Determine phase
+      if (pillCount > 0 && pillCount <= CYCLE_ACTIVE) {
+        // Check if dateKey itself has pill or is within active phase
+        if (data[dateKey]?.pill?.taken) {
+          return { phase: 'active', dayInPhase: pillCount, totalPhase: CYCLE_ACTIVE, cycleStart, pillCount };
+        }
+        // Day without pill but still in active phase (missed day or today not yet taken)
+        return { phase: 'active', dayInPhase: pillCount, totalPhase: CYCLE_ACTIVE, cycleStart, pillCount };
+      }
+
+      if (pillCount >= CYCLE_ACTIVE && lastActivePillDate) {
+        const pauseDay = daysBetween(lastActivePillDate, dateKey);
+        if (pauseDay >= 1 && pauseDay <= CYCLE_PAUSE) {
+          return { phase: 'pause', dayInPhase: pauseDay, totalPhase: CYCLE_PAUSE, cycleStart, pillCount: CYCLE_ACTIVE };
+        }
+      }
+
+      return null;
+    }
+
+    function getCycleInfoForFuture(dateKey) {
+      const todayKey = formatDateKey(new Date());
+      const todayInfo = getCycleInfo(todayKey);
+      if (!todayInfo) return null;
+
+      const daysAhead = daysBetween(todayKey, dateKey);
+      if (daysAhead <= 0) return null;
+
+      // Project forward: determine today's position in the 28-day cycle
+      let todayOffset;
+      if (todayInfo.phase === 'active') {
+        todayOffset = todayInfo.dayInPhase; // 1-24
+      } else {
+        todayOffset = CYCLE_ACTIVE + todayInfo.dayInPhase; // 25-28
+      }
+
+      const futureOffset = ((todayOffset - 1 + daysAhead) % CYCLE_TOTAL) + 1;
+
+      if (futureOffset <= CYCLE_ACTIVE) {
+        return { phase: 'active', dayInPhase: futureOffset, totalPhase: CYCLE_ACTIVE, projected: true };
+      } else {
+        return { phase: 'pause', dayInPhase: futureOffset - CYCLE_ACTIVE, totalPhase: CYCLE_PAUSE, projected: true };
+      }
+    }
+
+    function renderCycleCard() {
+      const container = document.getElementById('cycleCard');
+      const todayKey = formatDateKey(new Date());
+      const info = getCycleInfo(todayKey);
+
+      if (!info) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'block';
+
+      const phaseText = info.phase === 'active' ? 'Fase Ativa' : 'Pausa';
+      const detailText = `Dia ${info.dayInPhase} de ${info.totalPhase}`;
+
+      let dotsHtml = '';
+      for (let i = 1; i <= CYCLE_ACTIVE; i++) {
+        const filled = i <= info.pillCount ? 'filled' : '';
+        dotsHtml += `<span class="cycle-progress-dot ${filled}"></span>`;
+      }
+      dotsHtml += '<span class="cycle-progress-separator"></span>';
+      for (let i = 1; i <= CYCLE_PAUSE; i++) {
+        const filled = (info.phase === 'pause' && i <= info.dayInPhase) ? 'filled' : '';
+        dotsHtml += `<span class="cycle-progress-dot pause-dot ${filled}"></span>`;
+      }
+
+      container.innerHTML = `
+        <div class="cycle-card-phase ${info.phase}">${phaseText}</div>
+        <div class="cycle-card-detail">${detailText}</div>
+        <div class="cycle-progress">${dotsHtml}</div>
+        <div class="cycle-card-ornament">── ✦ ──</div>
+      `;
     }
 
     // ─── Navigation ───
@@ -879,15 +1168,40 @@
       // Update UI
       document.getElementById('panelDate').textContent = formatDateDisplay(dateKey);
 
-      // Pill toggle
-      document.querySelectorAll('#pillToggle .pill-option').forEach(btn => {
-        const val = btn.dataset.pill === 'true';
-        btn.classList.toggle('selected', val === panelPill);
-      });
+      // Cycle badge
+      const cycleBadge = document.getElementById('panelCycleBadge');
+      const cycleInfo = getCycleInfo(dateKey) || getCycleInfoForFuture(dateKey);
+      const isPauseDay = cycleInfo?.phase === 'pause';
+      if (cycleInfo) {
+        cycleBadge.style.display = 'block';
+        const phaseLabel = cycleInfo.phase === 'active' ? 'Fase ativa' : 'Pausa';
+        cycleBadge.className = `panel-cycle-badge${isPauseDay ? ' pause-badge' : ''}`;
+        cycleBadge.innerHTML = `<span class="badge-phase">${phaseLabel}</span> — Dia ${cycleInfo.dayInPhase} de ${cycleInfo.totalPhase}`;
+      } else {
+        cycleBadge.style.display = 'none';
+      }
 
-      // Time row
+      // Pill toggle — disable on pause days
+      const pillPauseMsg = document.getElementById('pillPauseMsg');
+      const pillToggle = document.getElementById('pillToggle');
       const timeRow = document.getElementById('timeRow');
-      timeRow.classList.toggle('visible', panelPill);
+      if (isPauseDay) {
+        pillToggle.style.display = 'none';
+        timeRow.classList.remove('visible');
+        pillPauseMsg.style.display = 'block';
+      } else {
+        pillToggle.style.display = 'flex';
+        pillPauseMsg.style.display = 'none';
+
+        // Pill toggle
+        document.querySelectorAll('#pillToggle .pill-option').forEach(btn => {
+          const val = btn.dataset.pill === 'true';
+          btn.classList.toggle('selected', val === panelPill);
+        });
+
+        // Time row
+        timeRow.classList.toggle('visible', panelPill);
+      }
       document.getElementById('pillTime').value = panelTime;
 
       // Period selector
@@ -964,6 +1278,7 @@
 
       saveLocal();
       renderCalendar();
+      renderCycleCard();
       closePanel();
       syncToRemote();
       showToast('Salvo ✓');
@@ -1067,6 +1382,7 @@
             data = mergeData(data, remoteData);
             saveLocal();
             renderCalendar();
+            renderCycleCard();
           }
 
           setSyncStatus('online');
