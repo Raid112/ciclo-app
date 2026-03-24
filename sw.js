@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ciclo-v2';
+const CACHE_NAME = 'ciclo-v3';
 const ASSETS = [
   './',
   './index.html',

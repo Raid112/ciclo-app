@@ -31,6 +31,14 @@
       --text-muted: #888;
       --border: #2d1f22;
       --primary-glow: rgba(139, 26, 26, 0.4);
+      --fertile-bg: rgba(147, 112, 219, 0.15);
+      --fertile-border: rgba(147, 112, 219, 0.4);
+      --predicted-period: rgba(231, 76, 60, 0.15);
+      --predicted-border: rgba(231, 76, 60, 0.4);
+      --phase-menstrual: #e74c3c;
+      --phase-follicular: #3498db;
+      --phase-fertile: #9b59b6;
+      --phase-luteal: #e67e22;
     }
 
     body {
@@ -322,6 +330,32 @@
       border-color: rgba(255, 255, 255, 0.08);
       border-style: dashed;
     }
+    .calendar-day.predicted-period {
+      border: 1px dashed var(--predicted-border);
+      background: var(--predicted-period);
+    }
+    .calendar-day.fertile-window {
+      background: var(--fertile-bg);
+      position: relative;
+    }
+    .calendar-day.fertile-window::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--phase-fertile);
+      opacity: 0.7;
+    }
+    .calendar-day.ovulation-day::after {
+      width: 6px;
+      height: 6px;
+      background: var(--phase-fertile);
+      box-shadow: 0 0 4px rgba(155, 89, 182, 0.5);
+    }
 
     /* ─── Cycle Status Card ─── */
     .cycle-card {
@@ -442,27 +476,29 @@
       inset: 0;
       background: rgba(0, 0, 0, 0.7);
       z-index: 200;
-      align-items: flex-end;
-      justify-content: center;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       animation: fadeIn 0.2s;
     }
-    .panel-overlay.active { display: flex; }
+    .panel-overlay.active { display: block; }
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
     .day-panel {
+      position: relative;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 20px 20px 0 0;
-      width: 100%;
+      border-radius: 20px;
+      width: calc(100% - 48px);
       max-width: 480px;
+      margin: 24px auto;
       padding: 24px 20px 32px;
       animation: slideUp 0.3s ease;
     }
     @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
+      from { transform: translateY(40px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
     .panel-title {
       font-family: 'Cinzel', serif;
@@ -651,6 +687,79 @@
       box-shadow: 0 0 10px rgba(231, 76, 60, 0.4);
     }
 
+    /* Cycle phase & prediction */
+    .cycle-phase-label { font-size: 11px; letter-spacing: 1px; margin-top: 4px; font-weight: 600; }
+    .cycle-phase-label.menstrual { color: var(--phase-menstrual); }
+    .cycle-phase-label.follicular { color: var(--phase-follicular); }
+    .cycle-phase-label.fertile { color: var(--phase-fertile); }
+    .cycle-phase-label.luteal { color: var(--phase-luteal); }
+    .cycle-prediction { font-size: 11px; color: var(--text-muted); margin-top: 8px; letter-spacing: 0.5px; }
+    .cycle-prediction .highlight { color: var(--accent); font-weight: 600; }
+
+    /* Collapsible symptom section */
+
+    .symptom-row { margin-bottom: 16px; }
+    .symptom-row-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .symptom-selector {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .symptom-selector.cols-5 {
+      grid-template-columns: repeat(5, 1fr);
+    }
+    .symptom-option {
+      padding: 10px 4px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Raleway', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .symptom-option:hover { border-color: var(--primary); color: var(--text); }
+    .symptom-option.selected {
+      border-color: var(--accent);
+      background: rgba(212, 68, 59, 0.15);
+      color: var(--text);
+      box-shadow: 0 0 10px rgba(231, 76, 60, 0.2);
+    }
+
+    .symptom-toggles {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .symptom-chip {
+      padding: 10px 8px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Raleway', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .symptom-chip.selected {
+      border-color: var(--accent);
+      background: rgba(212, 68, 59, 0.15);
+      color: var(--text);
+      box-shadow: 0 0 10px rgba(231, 76, 60, 0.2);
+    }
+
     /* Panel Actions */
     .panel-actions {
       display: flex;
@@ -766,6 +875,14 @@
           <span style="font-size:7px;color:var(--pill-color);font-weight:600;">15</span>
           Dia do ciclo
         </div>
+        <div class="legend-item">
+          <span style="width:10px;height:8px;border:1px dashed var(--predicted-border);background:var(--predicted-period);border-radius:2px;display:inline-block;"></span>
+          Previsão
+        </div>
+        <div class="legend-item">
+          <span style="width:10px;height:8px;background:var(--fertile-bg);border-radius:2px;display:inline-block;"></span>
+          Fértil
+        </div>
       </div>
     </section>
 
@@ -823,6 +940,49 @@
         </div>
       </div>
 
+      <!-- Sintomas -->
+      <div class="panel-section">
+        <div class="panel-section-title">
+          <span class="panel-section-icon">📋</span> Sintomas
+        </div>
+          <div class="symptom-row">
+            <div class="symptom-row-label">Cólica</div>
+            <div class="symptom-selector" id="crampsSelector">
+              <button class="symptom-option" data-cramps="none">Não</button>
+              <button class="symptom-option" data-cramps="light">Leve</button>
+              <button class="symptom-option" data-cramps="moderate">Moderada</button>
+              <button class="symptom-option" data-cramps="severe">Forte</button>
+            </div>
+          </div>
+          <div class="symptom-row">
+            <div class="symptom-row-label">Humor</div>
+            <div class="symptom-selector" id="moodSelector">
+              <button class="symptom-option" data-mood="normal">Normal</button>
+              <button class="symptom-option" data-mood="irritable">Irritável</button>
+              <button class="symptom-option" data-mood="sad">Triste</button>
+              <button class="symptom-option" data-mood="anxious">Ansiosa</button>
+            </div>
+          </div>
+          <div class="symptom-row">
+            <div class="symptom-row-label">Outros sintomas</div>
+            <div class="symptom-toggles">
+              <button class="symptom-chip" id="chipBreast" data-symptom="breastTenderness">Sensibilidade mamária</button>
+              <button class="symptom-chip" id="chipFatigue" data-symptom="fatigue">Fadiga</button>
+              <button class="symptom-chip" id="chipAcne" data-symptom="acne">Acne</button>
+            </div>
+          </div>
+          <div class="symptom-row">
+            <div class="symptom-row-label">Muco cervical</div>
+            <div class="symptom-selector cols-5" id="mucusSelector">
+              <button class="symptom-option" data-mucus="dry">Seco</button>
+              <button class="symptom-option" data-mucus="sticky">Pegajoso</button>
+              <button class="symptom-option" data-mucus="creamy">Cremoso</button>
+              <button class="symptom-option" data-mucus="stretchy">Elástico</button>
+              <button class="symptom-option" data-mucus="watery">Aquoso</button>
+            </div>
+          </div>
+      </div>
+
       <div class="panel-actions">
         <button class="btn btn-cancel" id="panelCancel">Cancelar</button>
         <button class="btn btn-confirm" id="panelSave">Salvar</button>
@@ -857,6 +1017,12 @@
     let panelPill = false;
     let panelTime = '';
     let panelPeriod = 'none';
+    let panelCramps = 'none';
+    let panelMood = 'normal';
+    let panelBreastTenderness = false;
+    let panelFatigue = false;
+    let panelAcne = false;
+    let panelMucus = 'dry';
 
     // ─── Init ───
     function init() {
@@ -985,6 +1151,25 @@
 
           if (cycleInfo.projected) {
             el.classList.add(cycleInfo.phase === 'active' ? 'future-active' : 'future-pause');
+          }
+        }
+
+        // Predicted period & fertile window (future days without actual period data)
+        const hasPeriodData = dayData?.period?.level && dayData.period.level !== 'none';
+        if (!hasPeriodData) {
+          const prediction = getNextPredictedPeriod();
+          if (prediction) {
+            const daysFromPredicted = daysBetween(prediction.startDate, dateKey);
+            if (daysFromPredicted >= 0 && daysFromPredicted <= 4) {
+              el.classList.add('predicted-period');
+            }
+          }
+          const fertile = getFertileWindow();
+          if (fertile) {
+            if (daysBetween(fertile.start, dateKey) >= 0 && daysBetween(dateKey, fertile.end) >= 0) {
+              el.classList.add('fertile-window');
+              if (dateKey === fertile.ovulation) el.classList.add('ovulation-day');
+            }
           }
         }
 
@@ -1132,12 +1317,93 @@
         dotsHtml += `<span class="cycle-progress-dot pause-dot ${filled}"></span>`;
       }
 
+      const phase = getCyclePhase(todayKey);
+      const prediction = getNextPredictedPeriod();
+
+      let phaseHtml = '';
+      if (phase) phaseHtml = `<div class="cycle-phase-label ${phase.class}">${phase.name}</div>`;
+
+      let predictionHtml = '';
+      if (prediction) {
+        const daysUntil = daysBetween(todayKey, prediction.startDate);
+        if (daysUntil > 0) predictionHtml = `<div class="cycle-prediction">Previsão: menstruação em <span class="highlight">${daysUntil} dia${daysUntil > 1 ? 's' : ''}</span></div>`;
+        else if (daysUntil === 0) predictionHtml = `<div class="cycle-prediction"><span class="highlight">Previsão: menstruação hoje</span></div>`;
+      }
+
       container.innerHTML = `
         <div class="cycle-card-phase ${info.phase}">${phaseText}</div>
+        ${phaseHtml}
         <div class="cycle-card-detail">${detailText}</div>
         <div class="cycle-progress">${dotsHtml}</div>
+        ${predictionHtml}
         <div class="cycle-card-ornament">── ✦ ──</div>
       `;
+    }
+
+    // ─── Prediction Engine ───
+
+    function getPeriodStarts() {
+      const allDates = Object.keys(data)
+        .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k))
+        .sort();
+      const starts = [];
+      let inPeriod = false;
+      for (const dateKey of allDates) {
+        const hasPeriod = data[dateKey]?.period?.level && data[dateKey].period.level !== 'none';
+        if (hasPeriod && !inPeriod) { starts.push(dateKey); inPeriod = true; }
+        else if (!hasPeriod) { inPeriod = false; }
+      }
+      return starts;
+    }
+
+    function getAverageCycleLength(maxCycles = 6) {
+      const starts = getPeriodStarts();
+      if (starts.length < 2) return null;
+      const recent = starts.slice(-(maxCycles + 1));
+      const lengths = [];
+      for (let i = 1; i < recent.length; i++) lengths.push(daysBetween(recent[i - 1], recent[i]));
+      const valid = lengths.filter(l => l >= 18 && l <= 45);
+      if (valid.length === 0) return null;
+      return Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+    }
+
+    function getNextPredictedPeriod() {
+      const starts = getPeriodStarts();
+      const avgLength = getAverageCycleLength();
+      if (!avgLength || starts.length === 0) return null;
+      const lastStart = starts[starts.length - 1];
+      const predictedStart = addDays(lastStart, avgLength);
+      const todayKey = formatDateKey(new Date());
+      if (daysBetween(todayKey, predictedStart) < -5) return null;
+      return { startDate: predictedStart, cycleLength: avgLength, confidence: starts.length >= 4 ? 'high' : 'low' };
+    }
+
+    function getFertileWindow() {
+      const starts = getPeriodStarts();
+      const avgLength = getAverageCycleLength();
+      if (!avgLength || starts.length === 0) return null;
+      const lastStart = starts[starts.length - 1];
+      const ovulationDay = avgLength - 14;
+      return {
+        start: addDays(lastStart, ovulationDay - 5),
+        end: addDays(lastStart, ovulationDay + 1),
+        ovulation: addDays(lastStart, ovulationDay)
+      };
+    }
+
+    function getCyclePhase(dateKey) {
+      const starts = getPeriodStarts();
+      const avgLength = getAverageCycleLength();
+      if (!avgLength || starts.length === 0) return null;
+      const lastStart = starts[starts.length - 1];
+      let daysFrom = daysBetween(lastStart, dateKey);
+      if (daysFrom < 0) return null;
+      daysFrom = daysFrom % avgLength;
+      const ovDay = avgLength - 14;
+      if (daysFrom < 5) return { name: 'Menstrual', class: 'menstrual' };
+      if (daysFrom < ovDay - 5) return { name: 'Folicular', class: 'follicular' };
+      if (daysFrom < ovDay + 2) return { name: 'Fértil', class: 'fertile' };
+      return { name: 'Lútea', class: 'luteal' };
     }
 
     // ─── Navigation ───
@@ -1209,6 +1475,15 @@
         btn.classList.toggle('selected', btn.dataset.level === panelPeriod);
       });
 
+      // Symptoms
+      panelCramps = existing?.symptoms?.cramps || 'none';
+      panelMood = existing?.symptoms?.mood || 'normal';
+      panelBreastTenderness = existing?.symptoms?.breastTenderness || false;
+      panelFatigue = existing?.symptoms?.fatigue || false;
+      panelAcne = existing?.symptoms?.acne || false;
+      panelMucus = existing?.symptoms?.mucus || 'dry';
+      updateSymptomUI();
+
       panelOverlay.classList.add('active');
     }
 
@@ -1247,6 +1522,41 @@
       });
     });
 
+    // Symptom UI helpers
+    function updateSymptomUI() {
+      document.querySelectorAll('#crampsSelector .symptom-option').forEach(b => b.classList.toggle('selected', b.dataset.cramps === panelCramps));
+      document.querySelectorAll('#moodSelector .symptom-option').forEach(b => b.classList.toggle('selected', b.dataset.mood === panelMood));
+      document.getElementById('chipBreast').classList.toggle('selected', panelBreastTenderness);
+      document.getElementById('chipFatigue').classList.toggle('selected', panelFatigue);
+      document.getElementById('chipAcne').classList.toggle('selected', panelAcne);
+      document.querySelectorAll('#mucusSelector .symptom-option').forEach(b => b.classList.toggle('selected', b.dataset.mucus === panelMucus));
+    }
+
+    // Cramps, Mood, Mucus selectors
+    ['cramps', 'mood', 'mucus'].forEach(type => {
+      const selectorId = type === 'cramps' ? 'crampsSelector' : type === 'mood' ? 'moodSelector' : 'mucusSelector';
+      document.querySelectorAll(`#${selectorId} .symptom-option`).forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.dataset[type];
+          if (type === 'cramps') panelCramps = val;
+          else if (type === 'mood') panelMood = val;
+          else panelMucus = val;
+          document.querySelectorAll(`#${selectorId} .symptom-option`).forEach(b => b.classList.toggle('selected', b.dataset[type] === val));
+        });
+      });
+    });
+
+    // Boolean symptom chips
+    document.querySelectorAll('.symptom-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const s = chip.dataset.symptom;
+        if (s === 'breastTenderness') panelBreastTenderness = !panelBreastTenderness;
+        else if (s === 'fatigue') panelFatigue = !panelFatigue;
+        else if (s === 'acne') panelAcne = !panelAcne;
+        chip.classList.toggle('selected');
+      });
+    });
+
     // Cancel
     document.getElementById('panelCancel').addEventListener('click', closePanel);
     panelOverlay.addEventListener('click', (e) => {
@@ -1259,6 +1569,9 @@
 
       const time = document.getElementById('pillTime').value || getCurrentTime();
 
+      const hasSymptoms = panelCramps !== 'none' || panelMood !== 'normal' ||
+        panelBreastTenderness || panelFatigue || panelAcne || panelMucus !== 'dry';
+
       const dayEntry = {
         pill: {
           taken: panelPill,
@@ -1269,8 +1582,19 @@
         }
       };
 
+      if (hasSymptoms) {
+        dayEntry.symptoms = {
+          cramps: panelCramps,
+          mood: panelMood,
+          breastTenderness: panelBreastTenderness,
+          fatigue: panelFatigue,
+          acne: panelAcne,
+          mucus: panelMucus
+        };
+      }
+
       // Only store if something is set
-      if (!panelPill && panelPeriod === 'none') {
+      if (!panelPill && panelPeriod === 'none' && !hasSymptoms) {
         delete data[selectedDate];
       } else {
         data[selectedDate] = dayEntry;
@@ -1394,23 +1718,44 @@
       }
     }
 
+    function mergeSymptoms(local, remote) {
+      if (!local && !remote) return undefined;
+      if (!local) return remote;
+      if (!remote) return local;
+      const score = (s) => {
+        let n = 0;
+        if (s.cramps && s.cramps !== 'none') n++;
+        if (s.mood && s.mood !== 'normal') n++;
+        if (s.breastTenderness) n++;
+        if (s.fatigue) n++;
+        if (s.acne) n++;
+        if (s.mucus && s.mucus !== 'dry') n++;
+        return n;
+      };
+      return score(remote) >= score(local) ? remote : local;
+    }
+
     function mergeData(local, remote) {
       const merged = { ...local };
+      const entryHasData = (d) => d?.pill?.taken ||
+        (d?.period?.level && d.period.level !== 'none') ||
+        (d?.symptoms && (d.symptoms.cramps !== 'none' || d.symptoms.mood !== 'normal' ||
+          d.symptoms.breastTenderness || d.symptoms.fatigue || d.symptoms.acne ||
+          (d.symptoms.mucus && d.symptoms.mucus !== 'dry')));
 
       for (const key of Object.keys(remote)) {
         if (!merged[key]) {
           merged[key] = remote[key];
         } else {
-          // If both exist, keep the one with more data
-          const localHasData = merged[key].pill?.taken || (merged[key].period?.level && merged[key].period.level !== 'none');
-          const remoteHasData = remote[key].pill?.taken || (remote[key].period?.level && remote[key].period.level !== 'none');
+          const localHasData = entryHasData(merged[key]);
+          const remoteHasData = entryHasData(remote[key]);
 
           if (remoteHasData && !localHasData) {
             merged[key] = remote[key];
           } else if (remoteHasData && localHasData) {
             // Merge fields: prefer taken=true, and keep highest period level
             const levels = ['none', 'light', 'medium', 'heavy'];
-            merged[key] = {
+            const result = {
               pill: {
                 taken: merged[key].pill?.taken || remote[key].pill?.taken,
                 time: (remote[key].pill?.taken ? remote[key].pill?.time : null) || merged[key].pill?.time
@@ -1421,6 +1766,9 @@
                   : merged[key].period.level
               }
             };
+            const mergedSymptoms = mergeSymptoms(merged[key]?.symptoms, remote[key]?.symptoms);
+            if (mergedSymptoms) result.symptoms = mergedSymptoms;
+            merged[key] = result;
           }
         }
       }
