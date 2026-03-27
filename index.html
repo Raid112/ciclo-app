@@ -50,84 +50,6 @@
       overflow-x: hidden;
     }
 
-    /* ─── Setup Screen ─── */
-    .setup-screen {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      z-index: 9999;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      padding: 32px;
-    }
-    .setup-screen.active { display: flex; }
-    .setup-logo {
-      font-family: 'Cinzel', serif;
-      font-size: 42px;
-      font-weight: 700;
-      letter-spacing: 8px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .setup-logo span { color: var(--accent); }
-    .setup-ornament {
-      color: var(--primary);
-      font-size: 10px;
-      letter-spacing: 4px;
-      opacity: 0.6;
-      margin-bottom: 40px;
-    }
-    .setup-text {
-      font-size: 14px;
-      color: var(--text-muted);
-      text-align: center;
-      line-height: 1.6;
-      margin-bottom: 24px;
-      max-width: 320px;
-    }
-    .setup-input {
-      width: 100%;
-      max-width: 360px;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      color: var(--text);
-      font-family: 'Raleway', sans-serif;
-      font-size: 14px;
-      outline: none;
-      margin-bottom: 12px;
-      transition: border-color 0.2s;
-      text-align: center;
-      letter-spacing: 1px;
-    }
-    .setup-input:focus { border-color: var(--primary-light); }
-    .setup-input::placeholder { color: var(--text-muted); }
-    .setup-btn {
-      width: 100%;
-      max-width: 360px;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
-      background: var(--primary);
-      color: white;
-      font-family: 'Raleway', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      letter-spacing: 2px;
-      transition: all 0.2s;
-    }
-    .setup-btn:hover { background: var(--primary-light); }
-    .setup-error {
-      color: var(--accent);
-      font-size: 12px;
-      margin-top: 8px;
-      display: none;
-    }
-
     /* ─── Header ─── */
     .header {
       text-align: center;
@@ -153,58 +75,6 @@
       color: var(--text);
     }
     .header h1 span { color: var(--accent); }
-    .header-actions {
-      position: absolute;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      gap: 8px;
-    }
-    .header-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-    .header-btn:hover {
-      border-color: var(--primary);
-      color: var(--text);
-    }
-    .sync-indicator {
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 10px;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .sync-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #27ae60;
-    }
-    .sync-dot.offline { background: var(--text-muted); }
-    .sync-dot.syncing {
-      background: #f39c12;
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
 
     /* ─── Calendar ─── */
     .calendar-section {
@@ -827,31 +697,12 @@
 </head>
 <body>
 
-  <!-- Setup Screen -->
-  <div class="setup-screen active" id="setupScreen">
-    <div class="setup-logo"><span>C</span>iclo</div>
-    <div class="setup-ornament">✦ ─────── ✦ ─────── ✦</div>
-    <p class="setup-text">Para sincronizar seus dados entre dispositivos, cole abaixo suas chaves de acesso e o ID do bin.</p>
-    <input class="setup-input" id="setupMasterKey" type="text" placeholder="X-Master-Key">
-    <input class="setup-input" id="setupAccessKey" type="text" placeholder="X-Access-Key">
-    <input class="setup-input" id="setupBinId" type="text" placeholder="Bin ID" style="margin-bottom: 20px;">
-    <button class="setup-btn" id="setupBtn">Começar</button>
-    <p class="setup-error" id="setupError">Preencha ambos os campos</p>
-  </div>
-
   <!-- Main App -->
-  <div id="appMain" style="display: none;">
+  <div id="appMain">
 
     <!-- Header -->
     <header class="header">
-      <div class="sync-indicator" id="syncIndicator">
-        <span class="sync-dot" id="syncDot"></span>
-        <span id="syncText">sync</span>
-      </div>
       <h1><span>C</span>iclo</h1>
-      <div class="header-actions">
-        <button class="header-btn" id="btnSync" aria-label="Sincronizar" title="Sincronizar">↻</button>
-      </div>
     </header>
 
     <!-- Calendar -->
@@ -1024,54 +875,48 @@
     let panelAcne = false;
     let panelMucus = 'dry';
 
-    // ─── Init ───
-    function init() {
-      const masterKey = localStorage.getItem(STORAGE_KEYS.masterKey);
-      const accessKey = localStorage.getItem(STORAGE_KEYS.accessKey);
-      const binId = localStorage.getItem(STORAGE_KEYS.binId);
-
-      if (masterKey && accessKey && binId) {
-        showApp();
-      } else {
-        document.getElementById('setupScreen').classList.add('active');
-      }
-    }
-
-    // ─── Setup ───
-    document.getElementById('setupBtn').addEventListener('click', () => {
-      const masterKey = document.getElementById('setupMasterKey').value.trim();
-      const accessKey = document.getElementById('setupAccessKey').value.trim();
-      const binId = document.getElementById('setupBinId').value.trim();
-      const error = document.getElementById('setupError');
-
-      if (!masterKey || !accessKey || !binId) {
-        error.textContent = 'Preencha todos os campos';
-        error.style.display = 'block';
-        return;
-      }
-
-      localStorage.setItem(STORAGE_KEYS.masterKey, masterKey);
-      localStorage.setItem(STORAGE_KEYS.accessKey, accessKey);
-      localStorage.setItem(STORAGE_KEYS.binId, binId);
-      error.style.display = 'none';
-      showApp();
-    });
-
-    function showApp() {
-      document.getElementById('setupScreen').classList.remove('active');
-      document.getElementById('appMain').style.display = 'block';
-
-      // Load local data
+    // ─── Init (with one-shot migration from JSONBin) ───
+    async function init() {
       data = JSON.parse(localStorage.getItem(STORAGE_KEYS.data) || '{}');
 
-      // Set current month
+      if (!localStorage.getItem('ciclo_migrated')) {
+        const masterKey = localStorage.getItem(STORAGE_KEYS.masterKey);
+        const accessKey = localStorage.getItem(STORAGE_KEYS.accessKey);
+        const binId = localStorage.getItem(STORAGE_KEYS.binId);
+
+        if (masterKey && accessKey && binId) {
+          try {
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+              headers: { 'X-Master-Key': masterKey, 'X-Access-Key': accessKey }
+            });
+            if (response.ok) {
+              const result = await response.json();
+              const remoteData = result.record;
+              if (remoteData && typeof remoteData === 'object') {
+                data = mergeData(data, remoteData);
+              }
+            }
+          } catch (e) { /* rede falhou, segue com dados locais */ }
+          saveLocal();
+        }
+
+        localStorage.removeItem(STORAGE_KEYS.masterKey);
+        localStorage.removeItem(STORAGE_KEYS.accessKey);
+        localStorage.removeItem(STORAGE_KEYS.binId);
+        localStorage.removeItem(STORAGE_KEYS.lastSync);
+        localStorage.setItem('ciclo_migrated', '1');
+      }
+
+      showApp();
+    }
+
+    function showApp() {
+      document.getElementById('appMain').style.display = 'block';
       const now = new Date();
       currentYear = now.getFullYear();
       currentMonth = now.getMonth();
-
       renderCalendar();
       renderCycleCard();
-      syncFromRemote();
     }
 
     // ─── Calendar Rendering ───
@@ -1246,21 +1091,16 @@
         }
       }
 
-      // Determine phase
-      if (pillCount > 0 && pillCount <= CYCLE_ACTIVE) {
-        // Check if dateKey itself has pill or is within active phase
-        if (data[dateKey]?.pill?.taken) {
-          return { phase: 'active', dayInPhase: pillCount, totalPhase: CYCLE_ACTIVE, cycleStart, pillCount };
-        }
-        // Day without pill but still in active phase (missed day or today not yet taken)
-        return { phase: 'active', dayInPhase: pillCount, totalPhase: CYCLE_ACTIVE, cycleStart, pillCount };
+      // Determine phase based on calendar days since cycle start
+      const calendarDay = totalDays + 1; // 1-based day position
+
+      if (calendarDay >= 1 && calendarDay <= CYCLE_ACTIVE) {
+        return { phase: 'active', dayInPhase: calendarDay, totalPhase: CYCLE_ACTIVE, cycleStart, pillCount };
       }
 
-      if (pillCount >= CYCLE_ACTIVE && lastActivePillDate) {
-        const pauseDay = daysBetween(lastActivePillDate, dateKey);
-        if (pauseDay >= 1 && pauseDay <= CYCLE_PAUSE) {
-          return { phase: 'pause', dayInPhase: pauseDay, totalPhase: CYCLE_PAUSE, cycleStart, pillCount: CYCLE_ACTIVE };
-        }
+      if (calendarDay > CYCLE_ACTIVE && calendarDay <= CYCLE_TOTAL) {
+        const pauseDay = calendarDay - CYCLE_ACTIVE;
+        return { phase: 'pause', dayInPhase: pauseDay, totalPhase: CYCLE_PAUSE, cycleStart, pillCount };
       }
 
       return null;
@@ -1604,7 +1444,6 @@
       renderCalendar();
       renderCycleCard();
       closePanel();
-      syncToRemote();
       showToast('Salvo ✓');
     });
 
@@ -1613,110 +1452,7 @@
       localStorage.setItem(STORAGE_KEYS.data, JSON.stringify(data));
     }
 
-    // ─── JSONBin Sync ───
-    function getMasterKey() {
-      return localStorage.getItem(STORAGE_KEYS.masterKey);
-    }
-
-    function getAccessKey() {
-      return localStorage.getItem(STORAGE_KEYS.accessKey);
-    }
-
-    function getBinId() {
-      return localStorage.getItem(STORAGE_KEYS.binId);
-    }
-
-    function setSyncStatus(status) {
-      const dot = document.getElementById('syncDot');
-      const text = document.getElementById('syncText');
-      dot.className = 'sync-dot';
-
-      switch (status) {
-        case 'online':
-          dot.classList.add('');
-          text.textContent = 'sync';
-          break;
-        case 'syncing':
-          dot.classList.add('syncing');
-          text.textContent = 'sincronizando...';
-          break;
-        case 'offline':
-          dot.classList.add('offline');
-          text.textContent = 'offline';
-          break;
-        case 'error':
-          dot.classList.add('offline');
-          text.textContent = 'erro';
-          break;
-      }
-    }
-
-    async function syncToRemote() {
-      const masterKey = getMasterKey();
-      const accessKey = getAccessKey();
-      const binId = getBinId();
-      if (!masterKey || !accessKey || !binId) return;
-
-      setSyncStatus('syncing');
-
-      try {
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': masterKey,
-            'X-Access-Key': accessKey
-          },
-          body: JSON.stringify(data)
-        });
-
-        if (response.ok) {
-          localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
-          setSyncStatus('online');
-        } else {
-          setSyncStatus('error');
-        }
-      } catch (e) {
-        setSyncStatus('offline');
-      }
-    }
-
-    async function syncFromRemote() {
-      const masterKey = getMasterKey();
-      const accessKey = getAccessKey();
-      const binId = getBinId();
-      if (!masterKey || !accessKey || !binId) return;
-
-      setSyncStatus('syncing');
-
-      try {
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-          headers: {
-            'X-Master-Key': masterKey,
-            'X-Access-Key': accessKey
-          }
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const remoteData = result.record;
-
-          if (remoteData && typeof remoteData === 'object') {
-            // Merge: remote wins for conflicts, keep local-only entries
-            data = mergeData(data, remoteData);
-            saveLocal();
-            renderCalendar();
-            renderCycleCard();
-          }
-
-          setSyncStatus('online');
-        } else {
-          setSyncStatus('error');
-        }
-      } catch (e) {
-        setSyncStatus('offline');
-      }
-    }
+    // ─── Migration merge (used once on first load after update) ───
 
     function mergeSymptoms(local, remote) {
       if (!local && !remote) return undefined;
@@ -1776,11 +1512,6 @@
       return merged;
     }
 
-    // Sync button
-    document.getElementById('btnSync').addEventListener('click', async () => {
-      await syncFromRemote();
-      showToast('Sincronizado ✓');
-    });
 
     // ─── Toast ───
     function showToast(message) {

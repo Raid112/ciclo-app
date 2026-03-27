@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ciclo-v3';
+const CACHE_NAME = 'ciclo-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -23,9 +23,6 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Don't cache API calls
-  if (e.request.url.includes('jsonbin.io')) return;
-
   e.respondWith(
     caches.match(e.request).then((cached) => cached || fetch(e.request))
   );
