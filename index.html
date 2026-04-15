@@ -1063,7 +1063,7 @@
       for (let i = 0; i < 90; i++) {
         const key = formatDateKey(cursor);
         if (data[key]?.pill?.taken) {
-          if (gapCount > CYCLE_PAUSE) break;
+          if (gapCount >= CYCLE_PAUSE && pillDates.length > 0) break;
           gapCount = 0;
           pillDates.push(key);
         } else {
