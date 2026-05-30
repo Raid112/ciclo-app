@@ -227,6 +227,24 @@
       box-shadow: 0 0 4px rgba(155, 89, 182, 0.5);
     }
 
+    /* ─── Regime contínuo (desogestrel) ─── */
+    .calendar-day.predicted-bleed {
+      border: 1px dashed var(--predicted-border);
+      background: var(--predicted-period);
+    }
+    .calendar-day.legacy-bleed { opacity: 0.4; }
+    .calendar-day.delay-risk::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #e6a23c;
+      box-shadow: 0 0 4px rgba(230, 162, 60, 0.6);
+    }
+
     /* ─── Cycle Status Card ─── */
     .cycle-card {
       margin: 0 16px 8px;
@@ -720,19 +738,15 @@
         </div>
         <div class="legend-item">
           <span class="legend-square period"></span>
-          Menstruação
-        </div>
-        <div class="legend-item">
-          <span style="font-size:7px;color:var(--pill-color);font-weight:600;">15</span>
-          Dia do ciclo
+          Sangramento
         </div>
         <div class="legend-item">
           <span style="width:10px;height:8px;border:1px dashed var(--predicted-border);background:var(--predicted-period);border-radius:2px;display:inline-block;"></span>
-          Previsão
+          Escape previsto
         </div>
         <div class="legend-item">
-          <span style="width:10px;height:8px;background:var(--fertile-bg);border-radius:2px;display:inline-block;"></span>
-          Fértil
+          <span style="width:8px;height:8px;border-radius:50%;background:#e6a23c;box-shadow:0 0 4px rgba(230,162,60,0.5);display:inline-block;"></span>
+          Atraso &gt; 12h
         </div>
       </div>
     </section>
@@ -746,7 +760,6 @@
     <div class="day-panel">
       <div class="panel-title" id="panelTitle">Registro</div>
       <div class="panel-date" id="panelDate"></div>
-      <div class="panel-cycle-badge" id="panelCycleBadge" style="display: none;"></div>
 
       <div class="panel-section">
         <div class="panel-section-title">
@@ -757,9 +770,6 @@
           <button class="pill-option" data-pill="false">Não tomou</button>
           <button class="pill-option" data-pill="true">Tomou</button>
         </div>
-        <div class="pill-pause-msg" id="pillPauseMsg" style="display: none;">
-          Período de pausa — não tomar a pílula
-        </div>
         <div class="time-row" id="timeRow">
           <span class="time-label">Horário:</span>
           <input type="time" id="pillTime">
@@ -768,13 +778,13 @@
 
       <div class="panel-section">
         <div class="panel-section-title">
-          <span class="panel-section-icon">🔴</span>
-          Menstruação
+          <span class="panel-section-icon">🩸</span>
+          Sangramento
         </div>
         <div class="period-selector" id="periodSelector">
           <button class="period-option" data-level="none">
             <span class="period-icon">○</span>
-            Não
+            Nenhum
           </button>
           <button class="period-option" data-level="light">
             <span class="period-icon">🩸</span>
@@ -782,7 +792,7 @@
           </button>
           <button class="period-option" data-level="medium">
             <span class="period-icon">🩸🩸</span>
-            Médio
+            Moderado
           </button>
           <button class="period-option" data-level="heavy">
             <span class="period-icon">🩸🩸🩸</span>
@@ -916,7 +926,7 @@
       currentYear = now.getFullYear();
       currentMonth = now.getMonth();
       renderCalendar();
-      renderCycleCard();
+      renderStatusCard();
     }
 
     // ─── Calendar Rendering ───
@@ -946,6 +956,9 @@
       const today = new Date();
       const todayStr = formatDateKey(today);
 
+      // Previsão calculada uma vez por render (evita recomputar por dia)
+      const pred = predictNextBleeding();
+
       // Empty cells
       for (let i = 0; i < startOffset; i++) {
         const el = document.createElement('div');
@@ -963,9 +976,10 @@
 
         if (dateKey === todayStr) el.classList.add('today');
 
-        // Period background
+        // Sangramento (intensidade) — registros anteriores ao regime aparecem esmaecidos
         if (dayData?.period?.level && dayData.period.level !== 'none') {
           el.classList.add(`period-${dayData.period.level}`);
+          if (!inRegime(dateKey)) el.classList.add('legacy-bleed');
         }
 
         // Day number
@@ -980,42 +994,13 @@
           el.appendChild(dot);
         }
 
-        // Cycle day indicator
-        const isFuture = new Date(currentYear, currentMonth, d) > today;
-        const cycleInfo = isFuture ? getCycleInfoForFuture(dateKey) : getCycleInfo(dateKey);
+        // Atraso > 12h da pílula = janela de risco
+        if (getPillDelayStatus(dateKey)?.risk) el.classList.add('delay-risk');
 
-        if (cycleInfo) {
-          const cycleNum = document.createElement('span');
-          cycleNum.className = 'cycle-day-num';
-          cycleNum.textContent = cycleInfo.phase === 'active'
-            ? `${cycleInfo.dayInPhase}`
-            : `P${cycleInfo.dayInPhase}`;
-          el.appendChild(cycleNum);
-
-          el.classList.add(cycleInfo.phase === 'active' ? 'active-day' : 'pause-day');
-
-          if (cycleInfo.projected) {
-            el.classList.add(cycleInfo.phase === 'active' ? 'future-active' : 'future-pause');
-          }
-        }
-
-        // Predicted period & fertile window (future days without actual period data)
-        const hasPeriodData = dayData?.period?.level && dayData.period.level !== 'none';
-        if (!hasPeriodData) {
-          const prediction = getNextPredictedPeriod();
-          if (prediction) {
-            const daysFromPredicted = daysBetween(prediction.startDate, dateKey);
-            if (daysFromPredicted >= 0 && daysFromPredicted <= 4) {
-              el.classList.add('predicted-period');
-            }
-          }
-          const fertile = getFertileWindow();
-          if (fertile) {
-            if (daysBetween(fertile.start, dateKey) >= 0 && daysBetween(dateKey, fertile.end) >= 0) {
-              el.classList.add('fertile-window');
-              if (dateKey === fertile.ovulation) el.classList.add('ovulation-day');
-            }
-          }
+        // Janela de escape prevista (só dias sem sangramento real registrado)
+        if (pred && !hasBleeding(dateKey) &&
+            daysBetween(pred.from, dateKey) >= 0 && daysBetween(dateKey, pred.to) >= 0) {
+          el.classList.add('predicted-bleed');
         }
 
         el.addEventListener('click', () => openPanel(dateKey, d));
@@ -1034,10 +1019,29 @@
       return `${days[d.getDay()]}, ${parts[2]} de ${MONTHS_PT[parseInt(parts[1]) - 1]}`;
     }
 
-    // ─── Cycle Engine (24+4) ───
-    const CYCLE_ACTIVE = 24;
-    const CYCLE_PAUSE = 4;
-    const CYCLE_TOTAL = CYCLE_ACTIVE + CYCLE_PAUSE;
+    // ─── Regime contínuo (desogestrel) ───
+    // Constantes do motor — TUNÁVEIS. São chutes iniciais; só calibram bem com ~6 meses
+    // de dado real. Ajustar aqui quando houver histórico suficiente.
+    const REGIME_START    = '2026-05-29'; // início do desogestrel; só analisa registros >= esta data
+    const PILL_TARGET     = '09:00';      // horário habitual da tomada
+    const DELAY_HOURS     = 12;           // janela de proteção do desogestrel
+    const ADAPTATION_DAYS = 90;           // fase de adaptação (~3 meses); sangramento caótico esperado
+    const EWMA_ALPHA      = 0.4;          // peso do recente na média de intervalos entre episódios
+    const CV_THRESHOLD    = 0.30;         // coef. de variação acima disso = irregular (sem previsão)
+    const PROLONGED_DAYS  = 10;           // episódio acima disso = sinal de alerta clínico
+    const MIN_INTERVALS   = 3;            // mínimo de intervalos (= 4 episódios) p/ tentar prever
+
+    function todayKey() { return formatDateKey(new Date()); }
+    // strings YYYY-MM-DD comparam corretamente em ordem lexicográfica
+    function inRegime(dateKey) { return dateKey >= REGIME_START; }
+    function hasBleeding(dateKey) {
+      const lvl = data[dateKey]?.period?.level;
+      return !!lvl && lvl !== 'none';
+    }
+    function formatShort(dateKey) {
+      const [, m, d] = dateKey.split('-');
+      return `${d}/${m}`;
+    }
 
     function parseDateKey(dateKey) {
       const [y, m, d] = dateKey.split('-').map(Number);
@@ -1054,196 +1058,178 @@
       return Math.round((parseDateKey(b) - parseDateKey(a)) / 86400000);
     }
 
-    function getCycleInfo(dateKey) {
-      // Walk backwards to find cycle start (first pill after gap > 4 days)
-      let pillDates = [];
-      let cursor = parseDateKey(dateKey);
-      let gapCount = 0;
+    // ─── Aderência da pílula ───
+    // Atraso da tomada vs horário-alvo. Limitação: só temos HH:MM, sem data real da dose.
+    // Uma tomada de madrugada (ex.: 01:00) é lida como -8h (adiantada) em vez de +16h, ou seja
+    // SUBESTIMA o risco nesse caso. Aceitável p/ app pessoal, mas é o ponto fraco do alerta.
+    function getPillDelayStatus(dateKey) {
+      const p = data[dateKey]?.pill;
+      if (!p?.taken || !p.time) return null;
+      const [th, tm] = PILL_TARGET.split(':').map(Number);
+      const [ph, pm] = p.time.split(':').map(Number);
+      const delayMin = (ph * 60 + pm) - (th * 60 + tm); // negativo = adiantado
+      return { delayMin, risk: delayMin > DELAY_HOURS * 60 };
+    }
 
-      for (let i = 0; i < 90; i++) {
-        const key = formatDateKey(cursor);
-        if (data[key]?.pill?.taken) {
-          if (gapCount >= CYCLE_PAUSE && pillDates.length > 0) break;
-          gapCount = 0;
-          pillDates.push(key);
+    function getAdherence() {
+      const tk = todayKey();
+      // streak de dias consecutivos com pílula. Dia corrente é PENDENTE, não esquecido:
+      // se ainda não tomou hoje, o streak conta a partir de ontem (último dia fechado).
+      let streak = 0;
+      let cursor = data[tk]?.pill?.taken ? tk : addDays(tk, -1);
+      while (cursor >= REGIME_START && data[cursor]?.pill?.taken) {
+        streak++;
+        cursor = addDays(cursor, -1);
+      }
+      // dias perdidos e janelas de risco — só dias FECHADOS (< hoje)
+      const missed = [];
+      const risk = [];
+      let d = REGIME_START;
+      while (d < tk) {
+        if (!data[d]?.pill?.taken) missed.push(d);
+        else if (getPillDelayStatus(d)?.risk) risk.push(d);
+        d = addDays(d, 1);
+      }
+      // hoje, se já tomou, também checa risco de atraso
+      if (data[tk]?.pill?.taken && getPillDelayStatus(tk)?.risk) risk.push(tk);
+      return { streak, missed, risk, pendingToday: !data[tk]?.pill?.taken };
+    }
+
+    // ─── Motor de padrão de sangramento ───
+    const LEVELS = ['none', 'light', 'medium', 'heavy'];
+
+    // Agrupa dias consecutivos de sangramento (>= REGIME_START) em episódios.
+    function getBleedingEpisodes() {
+      const dates = Object.keys(data)
+        .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && inRegime(k) && hasBleeding(k))
+        .sort();
+      const eps = [];
+      for (const k of dates) {
+        const rank = LEVELS.indexOf(data[k].period.level);
+        const last = eps[eps.length - 1];
+        if (last && daysBetween(last.end, k) === 1) {
+          last.end = k;
+          last.days++;
+          if (rank > last.maxRank) { last.maxRank = rank; last.maxLevel = data[k].period.level; }
         } else {
-          gapCount++;
-          if (gapCount > CYCLE_PAUSE && pillDates.length > 0) break;
-        }
-        cursor.setDate(cursor.getDate() - 1);
-      }
-
-      if (pillDates.length === 0) return null;
-
-      pillDates.reverse(); // chronological order
-      const cycleStart = pillDates[0];
-
-      // Count pills taken from cycle start through dateKey
-      let pillCount = 0;
-      let lastActivePillDate = null;
-      const totalDays = daysBetween(cycleStart, dateKey);
-
-      for (let i = 0; i <= Math.max(totalDays, 0); i++) {
-        const k = addDays(cycleStart, i);
-        if (data[k]?.pill?.taken) {
-          pillCount++;
-          if (pillCount <= CYCLE_ACTIVE) lastActivePillDate = k;
+          eps.push({ start: k, end: k, days: 1, maxLevel: data[k].period.level, maxRank: rank });
         }
       }
-
-      // Determine phase based on calendar days since cycle start
-      const calendarDay = totalDays + 1; // 1-based day position
-
-      if (calendarDay >= 1 && calendarDay <= CYCLE_ACTIVE) {
-        return { phase: 'active', dayInPhase: calendarDay, totalPhase: CYCLE_ACTIVE, cycleStart, pillCount };
-      }
-
-      if (calendarDay > CYCLE_ACTIVE && calendarDay <= CYCLE_TOTAL) {
-        const pauseDay = calendarDay - CYCLE_ACTIVE;
-        return { phase: 'pause', dayInPhase: pauseDay, totalPhase: CYCLE_PAUSE, cycleStart, pillCount };
-      }
-
-      return null;
+      return eps;
     }
 
-    function getCycleInfoForFuture(dateKey) {
-      const todayKey = formatDateKey(new Date());
-      const todayInfo = getCycleInfo(todayKey);
-      if (!todayInfo) return null;
-
-      const daysAhead = daysBetween(todayKey, dateKey);
-      if (daysAhead <= 0) return null;
-
-      // Project forward: determine today's position in the 28-day cycle
-      let todayOffset;
-      if (todayInfo.phase === 'active') {
-        todayOffset = todayInfo.dayInPhase; // 1-24
-      } else {
-        todayOffset = CYCLE_ACTIVE + todayInfo.dayInPhase; // 25-28
-      }
-
-      const futureOffset = ((todayOffset - 1 + daysAhead) % CYCLE_TOTAL) + 1;
-
-      if (futureOffset <= CYCLE_ACTIVE) {
-        return { phase: 'active', dayInPhase: futureOffset, totalPhase: CYCLE_ACTIVE, projected: true };
-      } else {
-        return { phase: 'pause', dayInPhase: futureOffset - CYCLE_ACTIVE, totalPhase: CYCLE_PAUSE, projected: true };
-      }
+    function getBleedingStats() {
+      const episodes = getBleedingEpisodes();
+      const tk = todayKey();
+      const daysWithin = (n) => Object.keys(data).filter(k =>
+        /^\d{4}-\d{2}-\d{2}$/.test(k) && inRegime(k) && hasBleeding(k) &&
+        daysBetween(k, tk) >= 0 && daysBetween(k, tk) < n).length;
+      const intervals = [];
+      for (let i = 1; i < episodes.length; i++) intervals.push(daysBetween(episodes[i - 1].start, episodes[i].start));
+      const avgDur = episodes.length ? episodes.reduce((a, e) => a + e.days, 0) / episodes.length : 0;
+      const avgInterval = intervals.length ? intervals.reduce((a, b) => a + b, 0) / intervals.length : null;
+      return { episodes, count: episodes.length, days30: daysWithin(30), days90: daysWithin(90), avgDur, intervals, avgInterval };
     }
 
-    function renderCycleCard() {
+    function classifyPattern() {
+      const s = getBleedingStats();
+      const elapsed = daysBetween(REGIME_START, todayKey());
+      if (s.episodes.some(e => e.days > PROLONGED_DAYS)) return { key: 'prolonged', label: 'Sangramento prolongado', alert: true };
+      if (s.days90 === 0) {
+        return elapsed >= 60
+          ? { key: 'amenorrhea', label: 'Amenorreia (sem sangramento)' }
+          : { key: 'none', label: 'Sem sangramento até agora' };
+      }
+      if (s.days90 >= 20 || s.count >= 4) return { key: 'frequent', label: 'Escape frequente' };
+      return { key: 'sporadic', label: 'Escape esporádico' };
+    }
+
+    // Previsão de janela do próximo episódio. Retorna null (só descreve) enquanto:
+    // ainda em adaptação, amostra insuficiente, ou padrão irregular (CV alto).
+    function predictNextBleeding() {
+      const s = getBleedingStats();
+      const elapsed = daysBetween(REGIME_START, todayKey());
+      if (elapsed <= ADAPTATION_DAYS) return null;
+      if (s.intervals.length < MIN_INTERVALS) return null;
+
+      // EWMA dos intervalos (mais antigo → recente): dá mais peso ao recente
+      let ewma = s.intervals[0];
+      for (let i = 1; i < s.intervals.length; i++) ewma = EWMA_ALPHA * s.intervals[i] + (1 - EWMA_ALPHA) * ewma;
+
+      const mean = s.avgInterval;
+      const variance = s.intervals.reduce((a, x) => a + (x - mean) ** 2, 0) / s.intervals.length;
+      const sd = Math.sqrt(variance);
+      const cv = mean ? sd / mean : Infinity;
+      if (cv > CV_THRESHOLD) return null; // irregular
+
+      const lastStart = s.episodes[s.episodes.length - 1].start;
+      const step = Math.max(1, Math.round(ewma));
+      // Avança até a próxima ocorrência futura: se o escape "atrasou" (regular mas ainda
+      // não veio), não faz sentido mostrar janela no passado. overdue marca esse caso.
+      const tk = todayKey();
+      let expected = addDays(lastStart, step);
+      let guard = 0;
+      while (daysBetween(tk, expected) < 0 && guard++ < 24) expected = addDays(expected, step);
+      const overdue = guard > 0;
+      const margin = Math.max(1, Math.ceil(sd));
+      const confidence = (s.count >= 6 && cv <= 0.20) ? 'high' : (s.count >= 5 ? 'medium' : 'low');
+      return { from: addDays(expected, -margin), to: addDays(expected, margin), expected, confidence, cv, overdue };
+    }
+
+    function renderStatusCard() {
       const container = document.getElementById('cycleCard');
-      const todayKey = formatDateKey(new Date());
-      const info = getCycleInfo(todayKey);
-
-      if (!info) {
-        container.style.display = 'none';
-        return;
-      }
-
+      const tk = todayKey();
+      const elapsed = daysBetween(REGIME_START, tk);
+      if (elapsed < 0) { container.style.display = 'none'; return; } // regime ainda não começou
       container.style.display = 'block';
 
-      const phaseText = info.phase === 'active' ? 'Fase Ativa' : 'Pausa';
-      const detailText = `Dia ${info.dayInPhase} de ${info.totalPhase}`;
+      const monthNum = Math.floor(elapsed / 30) + 1;
+      const inAdaptation = elapsed <= ADAPTATION_DAYS;
+      const adaptEnd = addDays(REGIME_START, ADAPTATION_DAYS);
 
-      let dotsHtml = '';
-      for (let i = 1; i <= CYCLE_ACTIVE; i++) {
-        const filled = i <= info.pillCount ? 'filled' : '';
-        dotsHtml += `<span class="cycle-progress-dot ${filled}"></span>`;
-      }
-      dotsHtml += '<span class="cycle-progress-separator"></span>';
-      for (let i = 1; i <= CYCLE_PAUSE; i++) {
-        const filled = (info.phase === 'pause' && i <= info.dayInPhase) ? 'filled' : '';
-        dotsHtml += `<span class="cycle-progress-dot pause-dot ${filled}"></span>`;
-      }
+      const adh = getAdherence();
+      const pattern = classifyPattern();
+      const stats = getBleedingStats();
+      const pred = predictNextBleeding();
 
-      const phase = getCyclePhase(todayKey);
-      const prediction = getNextPredictedPeriod();
-
-      let phaseHtml = '';
-      if (phase) phaseHtml = `<div class="cycle-phase-label ${phase.class}">${phase.name}</div>`;
-
-      let predictionHtml = '';
-      if (prediction) {
-        const daysUntil = daysBetween(todayKey, prediction.startDate);
-        if (daysUntil > 0) predictionHtml = `<div class="cycle-prediction">Previsão: menstruação em <span class="highlight">${daysUntil} dia${daysUntil > 1 ? 's' : ''}</span></div>`;
-        else if (daysUntil === 0) predictionHtml = `<div class="cycle-prediction"><span class="highlight">Previsão: menstruação hoje</span></div>`;
+      let html = `<div class="cycle-card-phase active">Mês ${monthNum} de uso</div>`;
+      if (inAdaptation) {
+        html += `<div class="cycle-card-detail">Fase de adaptação — sangramento irregular é esperado (até ~${formatShort(adaptEnd)})</div>`;
       }
 
-      container.innerHTML = `
-        <div class="cycle-card-phase ${info.phase}">${phaseText}</div>
-        ${phaseHtml}
-        <div class="cycle-card-detail">${detailText}</div>
-        <div class="cycle-progress">${dotsHtml}</div>
-        ${predictionHtml}
-        <div class="cycle-card-ornament">── ✦ ──</div>
-      `;
-    }
+      // Aderência
+      const plural = (n) => n === 1 ? '' : 's';
+      const streakTxt = adh.pendingToday
+        ? `${adh.streak} dia${plural(adh.streak)} seguido${plural(adh.streak)} · pílula de hoje pendente`
+        : `${adh.streak} dia${plural(adh.streak)} seguido${plural(adh.streak)}`;
+      html += `<div class="cycle-card-detail">💊 ${streakTxt}</div>`;
 
-    // ─── Prediction Engine ───
-
-    function getPeriodStarts() {
-      const allDates = Object.keys(data)
-        .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k))
-        .sort();
-      const starts = [];
-      let inPeriod = false;
-      for (const dateKey of allDates) {
-        const hasPeriod = data[dateKey]?.period?.level && data[dateKey].period.level !== 'none';
-        if (hasPeriod && !inPeriod) { starts.push(dateKey); inPeriod = true; }
-        else if (!hasPeriod) { inPeriod = false; }
+      // Padrão + stats
+      html += `<div class="cycle-phase-label ${pattern.alert ? 'menstrual' : 'follicular'}">${pattern.label}</div>`;
+      if (stats.count > 0) {
+        html += `<div class="cycle-prediction">${stats.days90} dia${plural(stats.days90)} de sangramento nos últimos 90 · ${stats.count} episódio${plural(stats.count)}</div>`;
       }
-      return starts;
-    }
 
-    function getAverageCycleLength(maxCycles = 6) {
-      const starts = getPeriodStarts();
-      if (starts.length < 2) return null;
-      const recent = starts.slice(-(maxCycles + 1));
-      const lengths = [];
-      for (let i = 1; i < recent.length; i++) lengths.push(daysBetween(recent[i - 1], recent[i]));
-      const valid = lengths.filter(l => l >= 18 && l <= 45);
-      if (valid.length === 0) return null;
-      return Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
-    }
+      // Previsão (só quando o motor permite)
+      if (pred) {
+        const confTxt = { low: 'baixa', medium: 'média', high: 'alta' }[pred.confidence];
+        const overdueTxt = pred.overdue ? ' (anterior atrasado)' : '';
+        html += `<div class="cycle-prediction">Próximo escape provável entre <span class="highlight">${formatShort(pred.from)}</span> e <span class="highlight">${formatShort(pred.to)}</span>${overdueTxt} (confiança: ${confTxt})</div>`;
+      } else if (!inAdaptation && pattern.key !== 'amenorrhea') {
+        html += `<div class="cycle-prediction">Ainda coletando dados pra estimar padrão</div>`;
+      }
 
-    function getNextPredictedPeriod() {
-      const starts = getPeriodStarts();
-      const avgLength = getAverageCycleLength();
-      if (!avgLength || starts.length === 0) return null;
-      const lastStart = starts[starts.length - 1];
-      const predictedStart = addDays(lastStart, avgLength);
-      const todayKey = formatDateKey(new Date());
-      if (daysBetween(todayKey, predictedStart) < -5) return null;
-      return { startDate: predictedStart, cycleLength: avgLength, confidence: starts.length >= 4 ? 'high' : 'low' };
-    }
+      // Alertas
+      if (pattern.alert) {
+        html += `<div class="cycle-prediction"><span class="highlight">Sangramento prolongado — considere avaliação médica</span></div>`;
+      }
+      if (adh.risk.length) {
+        const last = adh.risk[adh.risk.length - 1];
+        html += `<div class="cycle-prediction"><span class="highlight">⚠ Atraso > 12h em ${formatShort(last)}</span> — se houve relação desprotegida, considere teste de gravidez e método extra por 7 dias</div>`;
+      }
 
-    function getFertileWindow() {
-      const starts = getPeriodStarts();
-      const avgLength = getAverageCycleLength();
-      if (!avgLength || starts.length === 0) return null;
-      const lastStart = starts[starts.length - 1];
-      const ovulationDay = avgLength - 14;
-      return {
-        start: addDays(lastStart, ovulationDay - 5),
-        end: addDays(lastStart, ovulationDay + 1),
-        ovulation: addDays(lastStart, ovulationDay)
-      };
-    }
-
-    function getCyclePhase(dateKey) {
-      const starts = getPeriodStarts();
-      const avgLength = getAverageCycleLength();
-      if (!avgLength || starts.length === 0) return null;
-      const lastStart = starts[starts.length - 1];
-      let daysFrom = daysBetween(lastStart, dateKey);
-      if (daysFrom < 0) return null;
-      daysFrom = daysFrom % avgLength;
-      const ovDay = avgLength - 14;
-      if (daysFrom < 5) return { name: 'Menstrual', class: 'menstrual' };
-      if (daysFrom < ovDay - 5) return { name: 'Folicular', class: 'follicular' };
-      if (daysFrom < ovDay + 2) return { name: 'Fértil', class: 'fertile' };
-      return { name: 'Lútea', class: 'luteal' };
+      html += `<div class="cycle-card-ornament">── ✦ ──</div>`;
+      container.innerHTML = html;
     }
 
     // ─── Navigation ───
@@ -1274,40 +1260,12 @@
       // Update UI
       document.getElementById('panelDate').textContent = formatDateDisplay(dateKey);
 
-      // Cycle badge
-      const cycleBadge = document.getElementById('panelCycleBadge');
-      const cycleInfo = getCycleInfo(dateKey) || getCycleInfoForFuture(dateKey);
-      const isPauseDay = cycleInfo?.phase === 'pause';
-      if (cycleInfo) {
-        cycleBadge.style.display = 'block';
-        const phaseLabel = cycleInfo.phase === 'active' ? 'Fase ativa' : 'Pausa';
-        cycleBadge.className = `panel-cycle-badge${isPauseDay ? ' pause-badge' : ''}`;
-        cycleBadge.innerHTML = `<span class="badge-phase">${phaseLabel}</span> — Dia ${cycleInfo.dayInPhase} de ${cycleInfo.totalPhase}`;
-      } else {
-        cycleBadge.style.display = 'none';
-      }
-
-      // Pill toggle — disable on pause days
-      const pillPauseMsg = document.getElementById('pillPauseMsg');
-      const pillToggle = document.getElementById('pillToggle');
+      // Pílula — sempre disponível (regime contínuo, sem pausa)
       const timeRow = document.getElementById('timeRow');
-      if (isPauseDay) {
-        pillToggle.style.display = 'none';
-        timeRow.classList.remove('visible');
-        pillPauseMsg.style.display = 'block';
-      } else {
-        pillToggle.style.display = 'flex';
-        pillPauseMsg.style.display = 'none';
-
-        // Pill toggle
-        document.querySelectorAll('#pillToggle .pill-option').forEach(btn => {
-          const val = btn.dataset.pill === 'true';
-          btn.classList.toggle('selected', val === panelPill);
-        });
-
-        // Time row
-        timeRow.classList.toggle('visible', panelPill);
-      }
+      document.querySelectorAll('#pillToggle .pill-option').forEach(btn => {
+        btn.classList.toggle('selected', (btn.dataset.pill === 'true') === panelPill);
+      });
+      timeRow.classList.toggle('visible', panelPill);
       document.getElementById('pillTime').value = panelTime;
 
       // Period selector
@@ -1442,7 +1400,7 @@
 
       saveLocal();
       renderCalendar();
-      renderCycleCard();
+      renderStatusCard();
       closePanel();
       showToast('Salvo ✓');
     });
